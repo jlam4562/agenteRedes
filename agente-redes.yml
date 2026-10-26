@@ -1,0 +1,45 @@
+# Guardar en el repositorio como: .github/workflows/agente-redes.yml
+# Horario: 08:00 hora de Ecuador (UTC-5) = 13:00 UTC
+name: Agente de contenido para redes
+
+on:
+  schedule:
+    - cron: "0 13 * * 1"   # Lunes  -> CS
+    - cron: "0 13 * * 4"   # Jueves -> MIS
+  workflow_dispatch:
+    inputs:
+      categoria:
+        description: "CS o MIS (vacío = según el día)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  generar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Ejecutar agente
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        run: python agente_redes.py ${{ github.event.inputs.categoria }}
+
+      - name: Guardar historial de temas
+        run: |
+          git config user.name "agente-redes"
+          git config user.email "agente-redes@users.noreply.github.com"
+          git add historial.json || true
+          git diff --cached --quiet || (git commit -m "Actualiza historial" && git push)
